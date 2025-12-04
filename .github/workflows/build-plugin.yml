@@ -1,0 +1,115 @@
+name: Build Android Plugin
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Plugin AAR
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+      
+      - name: Install Android SDK components
+        run: |
+          sdkmanager --install "platforms;android-34" "build-tools;34.0.0"
+      
+      - name: Download Godot Library
+        run: |
+          # Create godot-lib directory if it doesn't exist
+          mkdir -p android/godot-lib
+          
+          # Download Godot 4.3 stable export templates
+          GODOT_VERSION="4.3-stable"
+          GODOT_TEMPLATES_URL="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_export_templates.tpz"
+          
+          echo "Downloading Godot export templates..."
+          wget -q "${GODOT_TEMPLATES_URL}" -O /tmp/godot-templates.tpz
+          
+          # Extract the AAR from the templates
+          echo "Extracting godot-lib.release.aar..."
+          unzip -q /tmp/godot-templates.tpz "templates/android_source.zip" -d /tmp/
+          unzip -q /tmp/templates/android_source.zip "libs/release/*.aar" -d /tmp/
+          
+          # Copy the AAR to the expected location
+          cp /tmp/libs/release/*.aar android/godot-lib/godot-lib.release.aar
+          
+          echo "Godot library downloaded successfully:"
+          ls -lh android/godot-lib/
+      
+      - name: Setup Gradle Wrapper
+        working-directory: android
+        run: |
+          # Initialize Gradle wrapper if gradle-wrapper.jar is missing
+          if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
+            gradle wrapper --gradle-version 8.5
+          fi
+      
+      - name: Grant execute permission for gradlew
+        run: chmod +x android/gradlew
+      
+      - name: Build with Gradle
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+      
+      - name: Prepare artifact
+        run: |
+          mkdir -p build-output
+          cp android/plugins/build/outputs/aar/plugins-release.aar build-output/joycon_android_plugin.aar
+          
+          # Create a checksum
+          cd build-output
+          sha256sum joycon_android_plugin.aar > joycon_android_plugin.aar.sha256
+          
+          echo "Build artifact info:"
+          ls -lh joycon_android_plugin.aar
+          cat joycon_android_plugin.aar.sha256
+      
+      - name: Upload Plugin AAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: joycon-android-plugin
+          path: |
+            build-output/joycon_android_plugin.aar
+            build-output/joycon_android_plugin.aar.sha256
+          retention-days: 30
+          if-no-files-found: error
+      
+      - name: Create Release Build Info
+        run: |
+          cat > build-output/BUILD_INFO.txt << EOF
+          Build Information
+          ==================
+          Build Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          Git Commit: ${GITHUB_SHA}
+          Git Ref: ${GITHUB_REF}
+          Workflow Run: ${GITHUB_RUN_NUMBER}
+          Godot Version: 4.3-stable
+          Android compileSdk: 34
+          Android minSdk: 21
+          Android targetSdk: 34
+          EOF
+          
+          cat build-output/BUILD_INFO.txt
+      
+      - name: Upload Build Info
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-info
+          path: build-output/BUILD_INFO.txt
+          retention-days: 30

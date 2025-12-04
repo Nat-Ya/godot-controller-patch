@@ -1,33 +1,18 @@
-plugins {
-    id 'com.android.library'
-    id 'org.jetbrains.kotlin.android'
-}
-
-android {
-    namespace = "fr.natnya.joycon"
-    compileSdk 34
-
-    defaultConfig {
-        minSdk 21
-        targetSdk 34
+// Top-level build file
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
     }
-
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
-    buildTypes {
-        release {
-            minifyEnabled false
-        }
+    dependencies {
+        classpath("com.android.tools.build:gradle:8.2.0")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.20")
     }
 }
 
-dependencies {
-    compileOnly fileTree(dir: '../../../../../../godot/bin', include: ['godot-lib.*.aar'])
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
 }

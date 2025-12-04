@@ -1,8 +1,12 @@
 # Gradle
 .gradle/
 android/build/
+android/plugins/build/
 *.aar
 *.apk
+
+# Keep Gradle wrapper jar
+!gradle/wrapper/gradle-wrapper.jar
 
 # Android Studio
 .idea/
