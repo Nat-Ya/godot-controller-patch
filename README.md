@@ -1,79 +1,179 @@
-# JoyCon Android Plugin
+# JoyCon Android Plugin for Godot 4.3
 
-Direct access to Joy-Con L buttons on Android via InputDevice API.
+![Godot 4.3](https://img.shields.io/badge/Godot-4.3-blue)
+![Android](https://img.shields.io/badge/Android-5.0+-green)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-## Problem
+A native Android plugin that enables full Joy-Con L button support in Godot 4.3 games, including D-pad, L, ZL, and Screenshot buttons that aren't normally accessible.
 
-Godot on Android doesn't map Joy-Con L buttons from Linux kernel events:
-- `BTN_TL` (L button)
-- `BTN_TL2` (ZL button)
-- `BTN_Z` (Screenshot button)
-- `BTN_DPAD_*` (D-pad)
+## ✨ Features
 
-Android OS receives these events (confirmed via `getevent`), but Godot's input system doesn't expose them.
+- **Complete Joy-Con L Support** - All buttons work: D-pad (↑↓←→), L, ZL, SL, SR, Screenshot
+- **Event-Driven** - Low-latency KeyEvent interception, no polling overhead
+- **Signal-Based API** - Clean GDScript integration with button press/release signals
+- **Docker Build** - Reproducible builds using Google Cloud Artifact Registry
+- **Android Only** - Lightweight, doesn't affect other platforms
 
-## Solution
+## 🚀 Quick Start
 
-This plugin uses Android's `KeyEvent` API to intercept button presses directly and expose them via signals.
+### Prerequisites
 
-## Building
+- **Godot**: 4.3.stable or newer
+- **Android SDK**: API level 21+ (Android 5.0+)
+- **Docker**: For building the plugin
+- **Google Cloud SDK**: For Docker authentication
 
-**Prerequisites:**
-- Android SDK with Build Tools 34+
-- Kotlin compiler
-- Godot 4.3+ AAR library
+### Installation
 
-**Steps:**
-
-1. **Copy Godot AAR:**
+1. **Clone the repository:**
    ```bash
-   mkdir -p godot/bin
-   cp path/to/godot-lib.release.aar godot/bin/
+   git clone https://github.com/Nat-Ya/godot-controller-patch.git
+   cd godot-controller-patch
    ```
 
-2. **Build plugin:**
+2. **Authenticate with Google Cloud:**
    ```bash
-   cd addons/joycon-android-plugin/android
-   gradle assembleRelease
+   gcloud auth login
+   gcloud auth configure-docker europe-west1-docker.pkg.dev
    ```
 
-3. **Copy output:**
+3. **Download Godot AAR library:**
+   - Get from: https://godotengine.org/download/4.x/linux
+   - Extract `godot-lib.release.aar`
+   - Copy to: `android/godot-lib/`
+
+4. **Build the plugin:**
    ```bash
-   cp build/outputs/aar/android-release.aar ../joycon_android_plugin.aar
+   ./build/build.sh
    ```
 
-## Usage
+5. **Install in your Godot project:**
+   ```bash
+   mkdir -p <your-project>/addons/joycon-android-plugin
+   cp build/output/joycon_android_plugin.aar <your-project>/addons/joycon-android-plugin/
+   cp src/joycon_android_runtime.gd <your-project>/addons/joycon-android-plugin/
+   cp plugin.cfg <your-project>/addons/joycon-android-plugin/
+   cp joycon_android.gd <your-project>/addons/joycon-android-plugin/
+   cp joycon_android_plugin.gdap <your-project>/addons/joycon-android-plugin/
+   ```
 
-**In `project.godot`:**
+6. **Enable in Godot:**
+   - Open your project in Godot
+   - Project > Project Settings > Plugins
+   - Enable "JoyCon Android Plugin"
+
+7. **Add autoload (Project Settings > Autoload):**
+   - Name: `JoyConRuntime`
+   - Path: `res://addons/joycon-android-plugin/joycon_android_runtime.gd`
+
+See [docs/INSTALLATION.md](docs/INSTALLATION.md) for detailed instructions.
+
+## 📖 Usage
+
 ```gdscript
-[autoload]
-JoyConAndroid="*res://addons/joycon-android-plugin/joycon_android_runtime.gd"
+extends Node
+
+func _ready() -> void:
+    # Connect to button signals
+    JoyConRuntime.button_pressed.connect(_on_joycon_button_pressed)
+    JoyConRuntime.button_released.connect(_on_joycon_button_released)
+
+func _on_joycon_button_pressed(device_id: int, button_index: int) -> void:
+    match button_index:
+        4:  print("L button pressed")
+        6:  print("ZL button pressed")
+        11: print("D-pad UP pressed")
+        12: print("D-pad DOWN pressed")
+        13: print("D-pad LEFT pressed")
+        14: print("D-pad RIGHT pressed")
+
+func _on_joycon_button_released(device_id: int, button_index: int) -> void:
+    print("Button ", button_index, " released")
+
+func _process(_delta: float) -> void:
+    # Or check button state directly
+    if JoyConRuntime.is_button_pressed(4):  # L button
+        print("L is held down")
 ```
 
-**In code:**
-```gdscript
-# Check if D-pad pressed
-if JoyConAndroid.is_button_pressed(11):  # D-pad UP
-    print("D-pad UP!")
+## 🔧 Button Mapping
 
-# Or connect to signals
-JoyConAndroid.button_pressed.connect(_on_joycon_button)
+| Joy-Con L Button | Linux Event   | Godot Index |
+|------------------|---------------|-------------|
+| D-pad UP         | BTN_DPAD_UP   | 11          |
+| D-pad DOWN       | BTN_DPAD_DOWN | 12          |
+| D-pad LEFT       | BTN_DPAD_LEFT | 13          |
+| D-pad RIGHT      | BTN_DPAD_RIGHT| 14          |
+| L                | BTN_TL        | 4           |
+| ZL               | BTN_TL2       | 6           |
+| Screenshot       | BTN_Z         | 16          |
+
+## 🏗️ Architecture
+
+```
+Game Code (GDScript)
+       ↓
+joycon_android_runtime.gd (Signals & State)
+       ↓
+JoyConAndroidPlugin.kt (KeyEvent Interception)
+       ↓
+Android OS (Input System)
 ```
 
-## Button Mappings
+The plugin intercepts Android `KeyEvent` callbacks before Godot processes them, mapping Joy-Con L buttons to standard Godot button indices.
 
-| Button | KeyEvent | Godot Index |
-|--------|----------|-------------|
-| L | `KEYCODE_BUTTON_L1` | 4 |
-| ZL | `KEYCODE_BUTTON_L2` | 6 |
-| Screenshot | `KEYCODE_BUTTON_Z` | 16 |
-| D-pad UP | `KEYCODE_DPAD_UP` | 11 |
-| D-pad DOWN | `KEYCODE_DPAD_DOWN` | 12 |
-| D-pad LEFT | `KEYCODE_DPAD_LEFT` | 13 |
-| D-pad RIGHT | `KEYCODE_DPAD_RIGHT` | 14 |
-| Minus | `KEYCODE_BUTTON_SELECT` | 6 |
-| Stick Click | `KEYCODE_BUTTON_THUMBL` | 10 |
+See [docs/SPECIFICATION.md](docs/SPECIFICATION.md) for technical details.
 
-## License
+## 🐛 Troubleshooting
 
-MIT
+**Plugin not detected:**
+```bash
+# Check if plugin is loaded
+adb logcat -s godot:I | grep JoyConAndroid
+# Should see: [JoyConAndroid] Plugin connected
+```
+
+**Joy-Con not responding:**
+```bash
+# Verify OS sees Joy-Con events
+adb shell getevent -tl /dev/input/event11
+# Press buttons, should see BTN_TL, BTN_DPAD_UP, etc.
+```
+
+**Build fails:**
+```bash
+# Verify Docker authentication
+gcloud auth list
+gcloud auth configure-docker europe-west1-docker.pkg.dev
+```
+
+See [docs/INSTALLATION.md](docs/INSTALLATION.md#troubleshooting) for more solutions.
+
+## 📚 Documentation
+
+- [SPECIFICATION.md](docs/SPECIFICATION.md) - Technical architecture and API reference
+- [INSTALLATION.md](docs/INSTALLATION.md) - Detailed setup instructions
+- [AGENTS.md](AGENTS.md) - Development guidelines for contributors
+- [CHANGELOG.md](CHANGELOG.md) - Version history
+
+## 🤝 Contributing
+
+1. Read [AGENTS.md](AGENTS.md) for development guidelines
+2. Follow [Conventional Commits](https://www.conventionalcommits.org/)
+3. Test with real Joy-Con L hardware
+4. Update documentation
+
+## 📝 License
+
+MIT License - See [LICENSE](LICENSE) file
+
+## 🙏 Acknowledgments
+
+- Godot Engine team for the plugin API
+- Nintendo Switch reverse engineering community
+- Google Cloud for build infrastructure
+
+## 📞 Support
+
+- **Issues**: https://github.com/Nat-Ya/godot-controller-patch/issues
+- **Discussions**: https://github.com/Nat-Ya/godot-controller-patch/discussions
