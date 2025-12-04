@@ -59,36 +59,23 @@ docker run --rm \
     -w /workspace/android \
     ${DOCKER_IMAGE} \
     bash -c "
-        # Setup Gradle wrapper if not present
-        if [ ! -f gradlew ]; then
-            echo 'Setting up Gradle wrapper...'
-            mkdir -p gradle/wrapper
-            
-            # Download gradle-wrapper.jar
-            curl -L -o gradle/wrapper/gradle-wrapper.jar \
-                https://raw.githubusercontent.com/gradle/gradle/v8.10.0/gradle/wrapper/gradle-wrapper.jar
-            
-            # Create gradle-wrapper.properties
-            cat > gradle/wrapper/gradle-wrapper.properties << 'PROPS'
-distributionBase=GRADLE_USER_HOME
-distributionPath=wrapper/dists
-distributionUrl=https\://services.gradle.org/distributions/gradle-8.10-bin.zip
-networkTimeout=10000
-validateDistributionUrl=true
-zipStoreBase=GRADLE_USER_HOME
-zipStorePath=wrapper/dists
-PROPS
-            
-            # Download gradlew script
-            curl -L -o gradlew \
-                https://raw.githubusercontent.com/gradle/gradle/v8.10.0/gradlew
-            
-            chmod +x gradlew
-        fi
+        # Debug: Show environment
+        echo 'Container environment:'
+        echo \"PATH: \$PATH\"
+        echo \"GRADLE_HOME: \$GRADLE_HOME\"
+        echo \"Java version:\"
+        java -version 2>&1 | head -1
+        echo \"\"
         
-        # Build with gradlew
-        ./gradlew assembleRelease
-        cp build/outputs/aar/android-release.aar /workspace/output/joycon_android_plugin.aar
+        # Try to find gradle
+        echo 'Searching for gradle...'
+        which gradle || echo 'gradle not in PATH'
+        ls -la /opt/ 2>/dev/null || true
+        ls -la /usr/local/ 2>/dev/null || true
+        find / -name 'gradle' -type f 2>/dev/null | head -5 || true
+        echo \"\"
+        
+        exit 1
     "
 
 # Check if build succeeded
