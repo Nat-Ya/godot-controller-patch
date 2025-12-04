@@ -18,5 +18,3 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "joycon-android-plugin"
-include(":plugins")
-project(":plugins").projectDir = file("plugins")
