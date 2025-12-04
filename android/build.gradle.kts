@@ -1,20 +1,20 @@
 plugins {
-    id 'com.android.library'
-    id 'org.jetbrains.kotlin.android'
+    id("com.android.library")
+    id("org.jetbrains.kotlin.android")
 }
 
 android {
     namespace = "fr.natnya.joycon"
-    compileSdk 34
+    compileSdk = 34
 
     defaultConfig {
-        minSdk 21
-        targetSdk 34
+        minSdk = 21
+        targetSdk = 34
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
@@ -23,11 +23,11 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled false
+            isMinifyEnabled = false
         }
     }
 }
 
 dependencies {
-    compileOnly fileTree(dir: '../../../../../../godot/bin', include: ['godot-lib.*.aar'])
+    compileOnly(fileTree(mapOf("dir" to "godot-lib", "include" to listOf("*.aar"))))
 }
