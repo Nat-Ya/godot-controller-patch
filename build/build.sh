@@ -79,7 +79,7 @@ docker run --rm \
         # Build with wrapper
         cd /workspace/android
         chmod +x gradlew
-        ./gradlew assembleRelease
+        ./gradlew clean assembleRelease
         
         # Copy output
         cp build/outputs/aar/android-release.aar /workspace/output/joycon_android_plugin.aar

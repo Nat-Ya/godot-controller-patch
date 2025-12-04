@@ -59,26 +59,7 @@ class JoyConAndroidPlugin(godot: Godot) : GodotPlugin(godot) {
         super.onMainActivityResult(requestCode, resultCode, data)
     }
     
-    // Handle key events directly from Android
-    override fun onMainKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
-        if (event != null && event.source and InputDevice.SOURCE_GAMEPAD != 0) {
-            val godotButton = BUTTON_MAP[keyCode]
-            if (godotButton != null) {
-                emitSignal("joycon_button_released", event.deviceId, godotButton)
-                return true
-            }
-        }
-        return super.onMainKeyUp(keyCode, event)
-    }
-    
-    override fun onMainKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (event != null && event.source and InputDevice.SOURCE_GAMEPAD != 0) {
-            val godotButton = BUTTON_MAP[keyCode]
-            if (godotButton != null) {
-                emitSignal("joycon_button_pressed", event.deviceId, godotButton)
-                return true
-            }
-        }
-        return super.onMainKeyDown(keyCode, event)
-    }
+    // Note: Direct KeyEvent interception may not be available in GodotPlugin
+    // Users should poll using pollJoyConButtons() method from GDScript
+    // or Godot 4.3+ might handle these inputs natively
 }
