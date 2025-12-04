@@ -59,9 +59,12 @@ docker run --rm \
     -w /workspace/android \
     ${DOCKER_IMAGE} \
     bash -c "
-        # Setup Gradle wrapper if not present
-        if [ ! -f gradlew ]; then
-            echo 'Setting up Gradle wrapper...'
+        # Ensure wrapper is executable
+        chmod +x gradlew
+        
+        # Check if wrapper works, otherwise regenerate
+        if ! ./gradlew --version >/dev/null 2>&1; then
+            echo 'Gradle wrapper corrupted, regenerating...'
             
             # Install temporary Gradle to generate wrapper
             cd /tmp
@@ -72,12 +75,12 @@ docker run --rm \
             # Generate wrapper in project
             cd /workspace/android
             gradle wrapper --gradle-version=8.5
+            chmod +x gradlew
             
-            echo 'Gradle wrapper created'
+            echo 'Gradle wrapper regenerated'
         fi
         
-        # Ensure wrapper is executable and use it
-        chmod +x gradlew
+        # Build
         ./gradlew clean assembleRelease
         
         # Copy output
