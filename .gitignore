@@ -1,6 +1,6 @@
 # Gradle
 .gradle/
-build/
+android/build/
 *.aar
 *.apk
 
@@ -14,7 +14,7 @@ godot-lib.release.aar
 *.import
 .godot/
 
-# Build artifacts
+# Build output
 build/output/
 
 # OS

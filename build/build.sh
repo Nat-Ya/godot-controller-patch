@@ -58,7 +58,22 @@ docker run --rm \
     -v "${OUTPUT_DIR}:/workspace/output" \
     -w /workspace/android \
     ${DOCKER_IMAGE} \
-    bash -c "gradle assembleRelease && cp build/outputs/aar/android-release.aar /workspace/output/joycon_android_plugin.aar"
+    bash -c "
+        # Check for gradle in common locations
+        GRADLE_CMD=\$(which gradle 2>/dev/null || find /opt /usr -name gradle -type f 2>/dev/null | head -1 || echo '')
+        if [ -z \"\$GRADLE_CMD\" ]; then
+            echo 'Error: Gradle not found in container. Checking for gradlew...'
+            if [ ! -f gradlew ]; then
+                echo 'Error: No gradle or gradlew available!'
+                exit 1
+            fi
+            GRADLE_CMD='./gradlew'
+            chmod +x gradlew
+        fi
+        echo \"Using Gradle: \$GRADLE_CMD\"
+        \$GRADLE_CMD assembleRelease
+        cp build/outputs/aar/android-release.aar /workspace/output/joycon_android_plugin.aar
+    "
 
 # Check if build succeeded
 if [ -f "${OUTPUT_DIR}/joycon_android_plugin.aar" ]; then
