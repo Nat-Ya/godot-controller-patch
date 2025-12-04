@@ -1,0 +1,11 @@
+[config]
+
+name="JoyConAndroidPlugin"
+binary_type="local"
+binary="joycon_android_plugin.aar"
+
+[dependencies]
+
+local=[]
+remote=[]
+custom_maven_repos=[]
