@@ -59,24 +59,27 @@ docker run --rm \
     -w /workspace/android \
     ${DOCKER_IMAGE} \
     bash -c "
-        # Install Gradle if not present
-        if ! command -v gradle &> /dev/null; then
-            echo 'Installing Gradle 8.10...'
+        # Setup Gradle wrapper if not present
+        if [ ! -f gradlew ]; then
+            echo 'Setting up Gradle wrapper...'
+            
+            # Install temporary Gradle to generate wrapper
             cd /tmp
             wget -q https://services.gradle.org/distributions/gradle-8.10-bin.zip
             unzip -q gradle-8.10-bin.zip
-            mv gradle-8.10 /opt/gradle
-            export PATH=\$PATH:/opt/gradle/bin
-            echo 'Gradle installed'
+            export PATH=\$PATH:/tmp/gradle-8.10/bin
+            
+            # Generate wrapper in project
+            cd /workspace/android
+            gradle wrapper --gradle-version=8.10
+            
+            echo 'Gradle wrapper created'
         fi
         
-        # Verify Gradle
-        gradle --version
-        echo ''
-        
-        # Build
+        # Build with wrapper
         cd /workspace/android
-        gradle assembleRelease
+        chmod +x gradlew
+        ./gradlew assembleRelease
         
         # Copy output
         cp build/outputs/aar/android-release.aar /workspace/output/joycon_android_plugin.aar

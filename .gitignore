@@ -4,6 +4,12 @@ android/build/
 *.aar
 *.apk
 
+# Keep Gradle wrapper files (generated on first build)
+!android/gradle/wrapper/gradle-wrapper.jar
+!android/gradle/wrapper/gradle-wrapper.properties
+!android/gradlew
+!android/gradlew.bat
+
 # Android Studio
 .idea/
 *.iml
