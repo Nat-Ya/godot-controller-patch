@@ -2,7 +2,7 @@ name: Build Android Plugin
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, 'copilot/**' ]
     tags:
       - 'v*'
   pull_request:
