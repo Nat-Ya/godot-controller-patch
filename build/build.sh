@@ -59,19 +59,35 @@ docker run --rm \
     -w /workspace/android \
     ${DOCKER_IMAGE} \
     bash -c "
-        # Check for gradle in common locations
-        GRADLE_CMD=\$(which gradle 2>/dev/null || find /opt /usr -name gradle -type f 2>/dev/null | head -1 || echo '')
-        if [ -z \"\$GRADLE_CMD\" ]; then
-            echo 'Error: Gradle not found in container. Checking for gradlew...'
-            if [ ! -f gradlew ]; then
-                echo 'Error: No gradle or gradlew available!'
-                exit 1
-            fi
-            GRADLE_CMD='./gradlew'
+        # Setup Gradle wrapper if not present
+        if [ ! -f gradlew ]; then
+            echo 'Setting up Gradle wrapper...'
+            mkdir -p gradle/wrapper
+            
+            # Download gradle-wrapper.jar
+            curl -L -o gradle/wrapper/gradle-wrapper.jar \
+                https://raw.githubusercontent.com/gradle/gradle/v8.10.0/gradle/wrapper/gradle-wrapper.jar
+            
+            # Create gradle-wrapper.properties
+            cat > gradle/wrapper/gradle-wrapper.properties << 'PROPS'
+distributionBase=GRADLE_USER_HOME
+distributionPath=wrapper/dists
+distributionUrl=https\://services.gradle.org/distributions/gradle-8.10-bin.zip
+networkTimeout=10000
+validateDistributionUrl=true
+zipStoreBase=GRADLE_USER_HOME
+zipStorePath=wrapper/dists
+PROPS
+            
+            # Download gradlew script
+            curl -L -o gradlew \
+                https://raw.githubusercontent.com/gradle/gradle/v8.10.0/gradlew
+            
             chmod +x gradlew
         fi
-        echo \"Using Gradle: \$GRADLE_CMD\"
-        \$GRADLE_CMD assembleRelease
+        
+        # Build with gradlew
+        ./gradlew assembleRelease
         cp build/outputs/aar/android-release.aar /workspace/output/joycon_android_plugin.aar
     "
 
