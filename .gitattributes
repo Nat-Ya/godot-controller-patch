@@ -1,0 +1,31 @@
+# Git attributes for godot-controller-patch
+
+# Force LF line endings for shell scripts (critical for Unix/Docker execution)
+*.sh text eol=lf
+gradlew text eol=lf
+build.sh text eol=lf
+
+# Force LF for Gradle wrapper script
+android/gradlew text eol=lf
+
+# Windows batch files use CRLF
+*.bat text eol=crlf
+
+# Binary files
+*.aar binary
+*.jar binary
+*.png binary
+*.jpg binary
+*.so binary
+
+# Text files with auto line endings
+*.md text
+*.txt text
+*.gradle text
+*.properties text
+*.xml text
+*.json text
+*.kt text
+*.gd text
+*.gdap text
+*.cfg text

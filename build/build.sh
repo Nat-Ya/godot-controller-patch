@@ -59,19 +59,28 @@ docker run --rm \
     -w /workspace/android \
     ${DOCKER_IMAGE} \
     bash -c "
-        # Check for gradle in common locations
-        GRADLE_CMD=\$(which gradle 2>/dev/null || find /opt /usr -name gradle -type f 2>/dev/null | head -1 || echo '')
-        if [ -z \"\$GRADLE_CMD\" ]; then
-            echo 'Error: Gradle not found in container. Checking for gradlew...'
-            if [ ! -f gradlew ]; then
-                echo 'Error: No gradle or gradlew available!'
-                exit 1
-            fi
-            GRADLE_CMD='./gradlew'
-            chmod +x gradlew
+        # Setup Gradle wrapper if not present
+        if [ ! -f gradlew ]; then
+            echo 'Setting up Gradle wrapper...'
+            
+            # Install temporary Gradle to generate wrapper
+            cd /tmp
+            wget -q https://services.gradle.org/distributions/gradle-8.5-bin.zip
+            unzip -q gradle-8.5-bin.zip
+            export PATH=\$PATH:/tmp/gradle-8.5/bin
+            
+            # Generate wrapper in project
+            cd /workspace/android
+            gradle wrapper --gradle-version=8.5
+            
+            echo 'Gradle wrapper created'
         fi
-        echo \"Using Gradle: \$GRADLE_CMD\"
-        \$GRADLE_CMD assembleRelease
+        
+        # Ensure wrapper is executable and use it
+        chmod +x gradlew
+        ./gradlew clean assembleRelease
+        
+        # Copy output
         cp build/outputs/aar/android-release.aar /workspace/output/joycon_android_plugin.aar
     "
 
