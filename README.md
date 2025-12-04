@@ -25,48 +25,41 @@ A native Android plugin that enables full Joy-Con L button support in Godot 4.3 
 
 ### Installation
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/Nat-Ya/godot-controller-patch.git
-   cd godot-controller-patch
-   ```
+#### Option 1: Download Pre-built AAR (Recommended)
 
-2. **Authenticate with Google Cloud:**
-   ```bash
-   gcloud auth login
-   gcloud auth configure-docker europe-west1-docker.pkg.dev
-   ```
+1. **Download from GitHub Actions:**
+   - Go to [Actions](https://github.com/Nat-Ya/godot-controller-patch/actions)
+   - Select the latest successful "Build Android Plugin" run
+   - Download the `joycon-android-plugin` artifact
 
-3. **Download Godot AAR library:**
-   - Get from: https://godotengine.org/download/4.x/linux
-   - Extract `godot-lib.release.aar`
-   - Copy to: `android/godot-lib/`
-
-4. **Build the plugin:**
-   ```bash
-   ./build/build.sh
-   ```
-
-5. **Install in your Godot project:**
+2. **Install in your Godot project:**
    ```bash
    mkdir -p <your-project>/addons/joycon-android-plugin
-   cp build/output/joycon_android_plugin.aar <your-project>/addons/joycon-android-plugin/
+   cp joycon_android_plugin.aar <your-project>/addons/joycon-android-plugin/
    cp src/joycon_android_runtime.gd <your-project>/addons/joycon-android-plugin/
    cp plugin.cfg <your-project>/addons/joycon-android-plugin/
    cp joycon_android.gd <your-project>/addons/joycon-android-plugin/
    cp joycon_android_plugin.gdap <your-project>/addons/joycon-android-plugin/
    ```
 
-6. **Enable in Godot:**
+3. **Enable in Godot:**
    - Open your project in Godot
    - Project > Project Settings > Plugins
    - Enable "JoyCon Android Plugin"
 
-7. **Add autoload (Project Settings > Autoload):**
+4. **Add autoload (Project Settings > Autoload):**
    - Name: `JoyConRuntime`
    - Path: `res://addons/joycon-android-plugin/joycon_android_runtime.gd`
 
-See [docs/INSTALLATION.md](docs/INSTALLATION.md) for detailed instructions.
+#### Option 2: Build from Source
+
+See [docs/BUILD.md](docs/BUILD.md) for detailed build instructions including:
+- Local build with Gradle
+- Docker-based build
+- GitHub Actions workflow
+- Troubleshooting
+
+See [docs/INSTALLATION.md](docs/INSTALLATION.md) for detailed installation instructions.
 
 ## 📖 Usage
 
@@ -151,6 +144,7 @@ See [docs/INSTALLATION.md](docs/INSTALLATION.md#troubleshooting) for more soluti
 
 ## 📚 Documentation
 
+- [BUILD.md](docs/BUILD.md) - Build instructions and CI/CD information
 - [SPECIFICATION.md](docs/SPECIFICATION.md) - Technical architecture and API reference
 - [INSTALLATION.md](docs/INSTALLATION.md) - Detailed setup instructions
 - [AGENTS.md](AGENTS.md) - Development guidelines for contributors

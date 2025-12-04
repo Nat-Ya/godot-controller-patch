@@ -1,0 +1,189 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+      
+      - name: Install Android SDK components
+        run: |
+          sdkmanager --install "platforms;android-34" "build-tools;34.0.0"
+      
+      - name: Download Godot Library
+        run: |
+          mkdir -p android/godot-lib
+          
+          GODOT_VERSION="4.3-stable"
+          GODOT_TEMPLATES_URL="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_export_templates.tpz"
+          
+          echo "Downloading Godot export templates..."
+          wget -q "${GODOT_TEMPLATES_URL}" -O /tmp/godot-templates.tpz
+          
+          echo "Extracting godot-lib.release.aar..."
+          unzip -q /tmp/godot-templates.tpz "templates/android_source.zip" -d /tmp/
+          unzip -q /tmp/templates/android_source.zip "libs/release/*.aar" -d /tmp/
+          
+          cp /tmp/libs/release/*.aar android/godot-lib/godot-lib.release.aar
+          
+          echo "Godot library downloaded successfully:"
+          ls -lh android/godot-lib/
+      
+      - name: Setup Gradle Wrapper
+        working-directory: android
+        run: |
+          if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
+            gradle wrapper --gradle-version 8.5
+          fi
+      
+      - name: Grant execute permission for gradlew
+        run: chmod +x android/gradlew
+      
+      - name: Build with Gradle
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+      
+      - name: Prepare Release Assets
+        run: |
+          mkdir -p release-assets
+          
+          # Copy the AAR
+          cp android/plugins/build/outputs/aar/plugins-release.aar release-assets/joycon_android_plugin.aar
+          
+          # Copy GDScript files
+          cp src/joycon_android_runtime.gd release-assets/
+          cp plugin.cfg release-assets/
+          cp joycon_android.gd release-assets/
+          cp joycon_android_plugin.gdap release-assets/
+          
+          # Create checksums
+          cd release-assets
+          sha256sum joycon_android_plugin.aar > joycon_android_plugin.aar.sha256
+          
+          # Create a complete plugin package
+          cd ..
+          mkdir -p plugin-package/addons/joycon-android-plugin
+          cp release-assets/joycon_android_plugin.aar plugin-package/addons/joycon-android-plugin/
+          cp release-assets/joycon_android_runtime.gd plugin-package/addons/joycon-android-plugin/
+          cp release-assets/plugin.cfg plugin-package/addons/joycon-android-plugin/
+          cp release-assets/joycon_android.gd plugin-package/addons/joycon-android-plugin/
+          cp release-assets/joycon_android_plugin.gdap plugin-package/addons/joycon-android-plugin/
+          
+          # Create installation README
+          cat > plugin-package/addons/joycon-android-plugin/README.txt << 'EOF'
+          JoyCon Android Plugin
+          =====================
+          
+          Installation:
+          1. Copy this 'joycon-android-plugin' folder to your Godot project's addons/ directory
+          2. Open your project in Godot
+          3. Go to Project > Project Settings > Plugins
+          4. Enable "JoyCon Android Plugin"
+          5. Add autoload: Project > Project Settings > Autoload
+             - Name: JoyConRuntime
+             - Path: res://addons/joycon-android-plugin/joycon_android_runtime.gd
+          
+          For detailed documentation, visit:
+          https://github.com/Nat-Ya/godot-controller-patch
+          EOF
+          
+          # Create ZIP package
+          cd plugin-package
+          zip -r ../release-assets/joycon-android-plugin-complete.zip addons/
+          cd ..
+          
+          echo "Release assets prepared:"
+          ls -lh release-assets/
+      
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Version: ${VERSION}"
+      
+      - name: Create Release Notes
+        run: |
+          cat > release-notes.md << EOF
+          # JoyCon Android Plugin ${{ steps.version.outputs.version }}
+          
+          ## 📦 Installation
+          
+          **Quick Install:**
+          Download \`joycon-android-plugin-complete.zip\`, extract it, and copy the \`addons\` folder to your Godot project.
+          
+          **Manual Install:**
+          1. Download \`joycon_android_plugin.aar\`
+          2. Download the GDScript files (\`joycon_android_runtime.gd\`, \`plugin.cfg\`, etc.)
+          3. Follow the installation instructions in the repository README
+          
+          ## 📝 What's Included
+          
+          - **joycon-android-plugin-complete.zip** - Ready-to-use plugin package (recommended)
+          - **joycon_android_plugin.aar** - Plugin binary
+          - **joycon_android_plugin.aar.sha256** - Checksum for verification
+          - **GDScript files** - Runtime wrapper and plugin configuration
+          
+          ## 🔧 Build Information
+          
+          - Godot Version: 4.3-stable
+          - Android compileSdk: 34
+          - Android minSdk: 21
+          - Android targetSdk: 34
+          - Build Date: $(date -u +"%Y-%m-%d")
+          
+          ## 📚 Documentation
+          
+          For detailed documentation, visit:
+          https://github.com/Nat-Ya/godot-controller-patch
+          
+          ## ✨ Features
+          
+          - Full Joy-Con L button support
+          - D-pad (↑↓←→), L, ZL, Screenshot buttons
+          - Event-driven with low latency
+          - Signal-based API for GDScript
+          
+          ---
+          
+          **Full Changelog:** https://github.com/Nat-Ya/godot-controller-patch/blob/main/CHANGELOG.md
+          EOF
+          
+          cat release-notes.md
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: release-notes.md
+          files: |
+            release-assets/joycon_android_plugin.aar
+            release-assets/joycon_android_plugin.aar.sha256
+            release-assets/joycon-android-plugin-complete.zip
+            release-assets/joycon_android_runtime.gd
+            release-assets/plugin.cfg
+            release-assets/joycon_android.gd
+            release-assets/joycon_android_plugin.gdap
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
