@@ -30,11 +30,11 @@ The workflow automatically:
 ### Option 1: Using Gradle Wrapper (Recommended)
 
 ```bash
+# Download Godot library (if not already present)
+./scripts/download-godot-lib.sh
+
 # Navigate to android directory
 cd android
-
-# Download Godot library (if not already present)
-# See android/godot-lib/README.md for instructions
 
 # Build the plugin
 ./gradlew assembleRelease
