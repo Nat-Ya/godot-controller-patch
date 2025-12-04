@@ -147,6 +147,15 @@ Artifacts are available under:
 - **joycon-android-plugin**: Contains the AAR and SHA256 checksum
 - **build-info**: Contains build metadata
 
+## Known Issues in Code
+
+Note: These are pre-existing issues in the plugin logic (not build-related):
+
+1. **Button Mapping Conflict**: Both `KEYCODE_BUTTON_L2` (ZL) and `KEYCODE_BUTTON_SELECT` (Minus) are mapped to Godot index 6, which may cause conflicts
+2. **pollJoyConButtons Implementation**: Uses `hasKeys()` which checks device capability, not current button state
+
+These issues do not affect the build process but may impact runtime functionality.
+
 ## Next Steps
 
 After building:
