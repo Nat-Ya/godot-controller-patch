@@ -59,23 +59,27 @@ docker run --rm \
     -w /workspace/android \
     ${DOCKER_IMAGE} \
     bash -c "
-        # Debug: Show environment
-        echo 'Container environment:'
-        echo \"PATH: \$PATH\"
-        echo \"GRADLE_HOME: \$GRADLE_HOME\"
-        echo \"Java version:\"
-        java -version 2>&1 | head -1
-        echo \"\"
+        # Install Gradle if not present
+        if ! command -v gradle &> /dev/null; then
+            echo 'Installing Gradle 8.10...'
+            cd /tmp
+            wget -q https://services.gradle.org/distributions/gradle-8.10-bin.zip
+            unzip -q gradle-8.10-bin.zip
+            mv gradle-8.10 /opt/gradle
+            export PATH=\$PATH:/opt/gradle/bin
+            echo 'Gradle installed'
+        fi
         
-        # Try to find gradle
-        echo 'Searching for gradle...'
-        which gradle || echo 'gradle not in PATH'
-        ls -la /opt/ 2>/dev/null || true
-        ls -la /usr/local/ 2>/dev/null || true
-        find / -name 'gradle' -type f 2>/dev/null | head -5 || true
-        echo \"\"
+        # Verify Gradle
+        gradle --version
+        echo ''
         
-        exit 1
+        # Build
+        cd /workspace/android
+        gradle assembleRelease
+        
+        # Copy output
+        cp build/outputs/aar/android-release.aar /workspace/output/joycon_android_plugin.aar
     "
 
 # Check if build succeeded
