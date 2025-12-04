@@ -1,0 +1,36 @@
+# Gradle
+.gradle/
+build/
+*.aar
+*.apk
+
+# Android Studio
+.idea/
+*.iml
+local.properties
+
+# Godot
+godot-lib.release.aar
+*.import
+.godot/
+
+# Build artifacts
+build/output/
+
+# OS
+.DS_Store
+Thumbs.db
+*~
+
+# Editor
+*.swp
+*.swo
+.vscode/
+.fleet/
+
+# Logs
+*.log
+logcat.txt
+
+# Dependencies
+node_modules/
