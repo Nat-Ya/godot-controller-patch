@@ -5,16 +5,15 @@ plugins {
 
 android {
     namespace = "fr.natnya.joycon"
-    compileSdk 34
+    compileSdk = 34
 
     defaultConfig {
-        minSdk 21
-        targetSdk 34
+        minSdk = 21
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
@@ -23,7 +22,7 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled false
+            isMinifyEnabled = false
         }
     }
 }
