@@ -68,13 +68,13 @@ docker run --rm \
             
             # Install temporary Gradle to generate wrapper
             cd /tmp
-            wget -q https://services.gradle.org/distributions/gradle-8.5-bin.zip
-            unzip -q gradle-8.5-bin.zip
-            export PATH=\$PATH:/tmp/gradle-8.5/bin
+            wget -q https://services.gradle.org/distributions/gradle-8.7-bin.zip
+            unzip -q gradle-8.7-bin.zip
+            export PATH=\$PATH:/tmp/gradle-8.7/bin
             
             # Generate wrapper in project
             cd /workspace/android
-            gradle wrapper --gradle-version=8.5
+            gradle wrapper --gradle-version=8.7
             chmod +x gradlew
             
             echo 'Gradle wrapper regenerated'

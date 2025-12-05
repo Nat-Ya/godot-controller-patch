@@ -53,7 +53,7 @@ jobs:
         working-directory: android
         run: |
           if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
-            gradle wrapper --gradle-version 8.5
+            gradle wrapper --gradle-version 8.7
           fi
       
       - name: Grant execute permission for gradlew

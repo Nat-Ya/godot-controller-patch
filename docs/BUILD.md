@@ -25,7 +25,7 @@ The workflow automatically:
 - **Android SDK** with:
   - Platform: `android-34`
   - Build Tools: `34.0.0`
-- **Gradle** 8.5 or newer (or use the wrapper)
+- **Gradle** 8.7 or newer (or use the wrapper)
 
 ### Option 1: Using Gradle Wrapper (Recommended)
 

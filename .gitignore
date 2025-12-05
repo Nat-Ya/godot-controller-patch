@@ -38,3 +38,5 @@ logcat.txt
 
 # Dependencies
 node_modules/
+gradle-*.zip
+gradle-*/
