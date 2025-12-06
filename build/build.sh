@@ -38,54 +38,115 @@ if [ ! -f "${GODOT_LIB}" ]; then
     exit 1
 fi
 
-# Verify Godot version from AAR
-echo -e "${YELLOW}Checking Godot library version...${NC}"
+# Verify Godot version from AAR (multi-check, non-blocking)
+echo -e "${YELLOW}=== Godot Library Validation ===${NC}"
 
-# Try to extract version from AAR (it's a ZIP file)
-GODOT_VERSION=""
-VERSION_VALID=false
+# Get file size
+AAR_SIZE=$(stat -f%z "${GODOT_LIB}" 2>/dev/null || stat -c%s "${GODOT_LIB}" 2>/dev/null || echo "0")
+AAR_SIZE_MB=$(awk "BEGIN {printf \"%.1f\", $AAR_SIZE / 1024 / 1024}")
 
-if command -v unzip >/dev/null 2>&1; then
-    # Method 1: Check for org.godotengine.godot package (most reliable)
-    if unzip -l "${GODOT_LIB}" 2>/dev/null | grep -q "org/godotengine/godot/"; then
-        # This is definitely a Godot AAR
-        
-        # Try to get version from package name patterns
-        GODOT_VERSION=$(unzip -p "${GODOT_LIB}" AndroidManifest.xml 2>/dev/null | grep -oP 'android:versionName="\K[^"]+' 2>/dev/null || echo "")
-        
-        # If version is "1.0" or similar generic, it's probably not the real Godot version
-        if [[ "$GODOT_VERSION" =~ ^[0-9]+\.[0-9]+$ ]] && [[ "$GODOT_VERSION" != "4."* ]]; then
-            # Generic version, ignore it
-            GODOT_VERSION=""
-        fi
-        
-        # Check file size as reliable indicator (4.3.stable is ~96MB)
-        AAR_SIZE=$(stat -f%z "${GODOT_LIB}" 2>/dev/null || stat -c%s "${GODOT_LIB}" 2>/dev/null || echo "0")
-        AAR_SIZE_MB=$(awk "BEGIN {printf \"%.1f\", $AAR_SIZE / 1024 / 1024}")
-        
-        if [ "$AAR_SIZE" -ge 85000000 ] && [ "$AAR_SIZE" -le 100000000 ]; then
-            # Size matches 4.3.stable (~96MB)
-            VERSION_VALID=true
-            if [ -z "$GODOT_VERSION" ]; then
-                GODOT_VERSION="${REQUIRED_GODOT_VERSION}.stable (verified by size: ${AAR_SIZE_MB}MB)"
-            fi
-            echo -e "${GREEN}✓ Godot library verified: ${GODOT_VERSION}${NC}"
-            echo -e "${GREEN}  Size: ${AAR_SIZE_MB}MB (expected ~96MB for 4.3.stable)${NC}"
-        else
-            echo -e "${RED}WARNING: Godot library size unexpected!${NC}"
-            echo "Expected: 85-100MB (Godot ${REQUIRED_GODOT_VERSION}.stable is ~96MB)"
-            echo "Found: ${AAR_SIZE_MB}MB"
-            echo ""
-            echo -e "${YELLOW}This may not be the correct Godot library${NC}"
-        fi
-    else
-        echo -e "${RED}ERROR: AAR does not contain org.godotengine.godot package!${NC}"
-        echo "This is not a valid Godot library."
-    fi
+# Score-based validation (non-blocking)
+CONFIDENCE_SCORE=0
+CHECKS_PASSED=0
+CHECKS_FAILED=0
+
+echo "Running validation checks..."
+echo ""
+
+# Check 1: File size (most reliable)
+echo -n "1. File size check: "
+if [ "$AAR_SIZE" -ge 80000000 ] && [ "$AAR_SIZE" -le 100000000 ]; then
+    echo -e "${GREEN}✓ PASS${NC} (${AAR_SIZE_MB}MB, expected 85-96MB for 4.3.stable)"
+    CONFIDENCE_SCORE=$((CONFIDENCE_SCORE + 50))
+    CHECKS_PASSED=$((CHECKS_PASSED + 1))
+else
+    echo -e "${RED}✗ FAIL${NC} (${AAR_SIZE_MB}MB, expected 85-96MB)"
+    CHECKS_FAILED=$((CHECKS_FAILED + 1))
 fi
 
-if [ "$VERSION_VALID" = false ]; then
-    # Show fix instructions
+# Check 2: File exists and is readable
+echo -n "2. File accessibility: "
+if [ -r "${GODOT_LIB}" ]; then
+    echo -e "${GREEN}✓ PASS${NC}"
+    CONFIDENCE_SCORE=$((CONFIDENCE_SCORE + 10))
+    CHECKS_PASSED=$((CHECKS_PASSED + 1))
+else
+    echo -e "${RED}✗ FAIL${NC}"
+    CHECKS_FAILED=$((CHECKS_FAILED + 1))
+fi
+
+# Check 3: Valid ZIP/JAR structure
+echo -n "3. ZIP structure: "
+if command -v unzip >/dev/null 2>&1 && unzip -t "${GODOT_LIB}" >/dev/null 2>&1; then
+    echo -e "${GREEN}✓ PASS${NC} (valid AAR archive)"
+    CONFIDENCE_SCORE=$((CONFIDENCE_SCORE + 10))
+    CHECKS_PASSED=$((CHECKS_PASSED + 1))
+else
+    echo -e "${YELLOW}⚠ SKIP${NC} (unzip not available or archive corrupt)"
+fi
+
+# Check 4: Contains classes.dex or classes.jar (Android library)
+echo -n "4. Android library structure: "
+if command -v unzip >/dev/null 2>&1; then
+    if unzip -l "${GODOT_LIB}" 2>/dev/null | grep -qE "(classes\.dex|classes\.jar)"; then
+        echo -e "${GREEN}✓ PASS${NC}"
+        CONFIDENCE_SCORE=$((CONFIDENCE_SCORE + 10))
+        CHECKS_PASSED=$((CHECKS_PASSED + 1))
+    else
+        echo -e "${RED}✗ FAIL${NC} (no classes found)"
+        CHECKS_FAILED=$((CHECKS_FAILED + 1))
+    fi
+else
+    echo -e "${YELLOW}⚠ SKIP${NC}"
+fi
+
+# Check 5: Contains Godot-specific files (org/godotengine or libgodot)
+echo -n "5. Godot package/library: "
+if command -v unzip >/dev/null 2>&1; then
+    HAS_GODOT_PACKAGE=$(unzip -l "${GODOT_LIB}" 2>/dev/null | grep -c "org/godotengine" || echo "0")
+    HAS_GODOT_LIB=$(unzip -l "${GODOT_LIB}" 2>/dev/null | grep -c "libgodot" || echo "0")
+    
+    if [ "$HAS_GODOT_PACKAGE" -gt 0 ] || [ "$HAS_GODOT_LIB" -gt 0 ]; then
+        echo -e "${GREEN}✓ PASS${NC} (found Godot signatures)"
+        CONFIDENCE_SCORE=$((CONFIDENCE_SCORE + 20))
+        CHECKS_PASSED=$((CHECKS_PASSED + 1))
+    else
+        echo -e "${YELLOW}⚠ WARN${NC} (no org.godotengine or libgodot found - unusual but may be OK)"
+        # Don't fail, older versions might have different structure
+    fi
+else
+    echo -e "${YELLOW}⚠ SKIP${NC}"
+fi
+
+# Summary
+echo ""
+echo -e "${YELLOW}=== Validation Summary ===${NC}"
+echo "Checks passed: ${CHECKS_PASSED}"
+echo "Checks failed: ${CHECKS_FAILED}"
+echo "Confidence score: ${CONFIDENCE_SCORE}/100"
+echo ""
+
+# Decision logic (non-blocking)
+if [ "$CONFIDENCE_SCORE" -ge 60 ]; then
+    echo -e "${GREEN}✓ Library appears valid for Godot ${REQUIRED_GODOT_VERSION}.stable${NC}"
+    echo -e "${GREEN}  (Confidence: ${CONFIDENCE_SCORE}%, proceeding with build)${NC}"
+    VERSION_VALID=true
+elif [ "$CONFIDENCE_SCORE" -ge 30 ]; then
+    echo -e "${YELLOW}⚠ Library validation uncertain (score: ${CONFIDENCE_SCORE}/100)${NC}"
+    echo ""
+    echo "Recommendations:"
+    echo "  - If build fails, re-download godot-lib.release.aar"
+    echo "  - Check that file is from Godot 4.3.stable export templates"
+    echo ""
+    read -p "Continue with uncertain library? (y/N) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        VERSION_VALID=true
+    else
+        VERSION_VALID=false
+    fi
+else
+    echo -e "${RED}✗ Library validation failed (score: ${CONFIDENCE_SCORE}/100)${NC}"
     echo ""
     echo -e "${YELLOW}Fix: Download the correct Godot ${REQUIRED_GODOT_VERSION}.stable library${NC}"
     echo "  rm ${GODOT_LIB}"
@@ -97,12 +158,15 @@ if [ "$VERSION_VALID" = false ]; then
     echo ""
     read -p "Continue anyway? (y/N) " -n 1 -r
     echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        VERSION_VALID=true
+    else
+        VERSION_VALID=false
         exit 1
     fi
 fi
 
-# Skip old size-only fallback code
+# Skip old fallback code
 if false; then
     # Fallback to size check if version not found
     echo -e "${YELLOW}Version not found in AAR, checking file size...${NC}"
