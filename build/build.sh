@@ -132,6 +132,17 @@ docker run --rm \
     -w /workspace/android \
     ${DOCKER_IMAGE} \
     bash -c "
+        # Kill any existing Gradle daemons and clear locks
+        echo 'Killing Gradle daemons and clearing locks...'
+        pkill -f GradleDaemon || true
+        rm -rf .gradle/*/fileHashes/*.lock
+        rm -rf .gradle/*/executionHistory/*.lock
+        rm -rf .gradle/*/generated-gradle-jars/*.lock
+        rm -rf .gradle/buildOutputCleanup/*.lock
+        rm -rf .gradle/daemon
+        echo '✓ Gradle locks cleared'
+        echo ''
+        
         # Clean old build outputs (inside Docker to avoid permission issues)
         echo 'Cleaning old build outputs...'
         rm -rf build plugins/build
@@ -160,8 +171,8 @@ docker run --rm \
             echo 'Gradle wrapper regenerated'
         fi
         
-        # Build
-        ./gradlew clean assembleRelease
+        # Build (--no-daemon to avoid lock issues in Docker)
+        ./gradlew --no-daemon clean assembleRelease
         
         # Copy output (plugins subproject is the actual plugin)
         if [ -f plugins/build/outputs/aar/plugins-release.aar ]; then
