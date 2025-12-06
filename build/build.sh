@@ -85,6 +85,12 @@ echo ""
 # Create output directory
 mkdir -p "${OUTPUT_DIR}"
 
+# Clean old outputs
+echo -e "${YELLOW}Cleaning old build outputs...${NC}"
+rm -rf "${PROJECT_ROOT}/android/build" "${PROJECT_ROOT}/android/plugins/build" "${OUTPUT_DIR}"/*.aar
+echo -e "${GREEN}✓ Clean complete${NC}"
+echo ""
+
 # Build plugin
 echo -e "${YELLOW}Building plugin...${NC}"
 docker run --rm \
@@ -117,14 +123,16 @@ docker run --rm \
         # Build
         ./gradlew clean assembleRelease
         
-        # Copy output (AAR is in plugins subproject)
+        # Copy output (plugins subproject is the actual plugin)
         if [ -f plugins/build/outputs/aar/plugins-release.aar ]; then
             cp plugins/build/outputs/aar/plugins-release.aar /workspace/output/joycon_android_plugin.aar
-        elif [ -f build/outputs/aar/android-release.aar ]; then
-            cp build/outputs/aar/android-release.aar /workspace/output/joycon_android_plugin.aar
+            echo 'Copied plugins-release.aar'
+        elif [ -f build/outputs/aar/joycon-android-plugin-release.aar ]; then
+            cp build/outputs/aar/joycon-android-plugin-release.aar /workspace/output/joycon_android_plugin.aar
+            echo 'Copied joycon-android-plugin-release.aar'
         else
-            echo 'ERROR: AAR not found in expected locations'
-            find build plugins/build -name '*.aar' 2>/dev/null || true
+            echo 'ERROR: Plugin AAR not found'
+            find . -name '*.aar' -not -path '*/godot-lib/*' 2>/dev/null || true
             exit 1
         fi
     "
