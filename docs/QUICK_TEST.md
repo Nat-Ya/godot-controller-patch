@@ -224,3 +224,45 @@ adb logcat | grep -i "singleton"
 ```bash
 adb logcat > full-session-$(date +%Y%m%d-%H%M%S).log
 ```
+
+---
+
+## 🆕 v1.3.0 Multi-Strategy Test (December 6, 2024)
+
+**New Features:**
+- DecorView OnKeyListener (Method 1)
+- Focus change listener (Method 2)
+- GenericMotion listener for joystick events (Method 3)
+- Plugin-level `interceptKeyEvent()` method
+- `pollButtonStates()` debugging method
+
+**Quick VM Test:**
+```bash
+# 1. Pull and rebuild
+cd ~/repos/godot-controller-patch && git pull && ./build/build.sh
+
+# 2. Copy AAR
+cp build/output/joycon_android_plugin.aar ~/repos/a-treasure-for-Lora/addons/joycon-android-plugin/
+
+# 3. Rebuild APK
+cd ~/repos/a-treasure-for-Lora && make clean && make install-apk
+
+# 4. Monitor logs
+adb logcat -s JoyConPlugin:I godot:I
+```
+
+**Expected Logs on Button Press:**
+```
+🔍 RAW EVENT: keyCode=102, device=0
+📥 handleKeyDown called: keyCode=102
+✓ MAPPED Button DOWN: keyCode=102 -> godot=4
+```
+
+**Or Alternative Paths:**
+- `[DecorView] Key event: ...` (DecorView caught it)
+- `[GenericMotion] Joystick event: ...` (Motion listener caught it)
+
+**If STILL no logs:**
+- Godot's activity doesn't dispatch gamepad KeyEvents to plugin level
+- Would need to patch Godot engine or use JNI hooks
+- Alternative: Polling via background thread + InputDevice API
