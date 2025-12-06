@@ -18,9 +18,31 @@ class JoyConAndroidPlugin(godot: Godot) : GodotPlugin(godot) {
     init {
         Log.i(TAG, "========================================")
         Log.i(TAG, "JoyConAndroidPlugin INITIALIZING")
-        Log.i(TAG, "Plugin version: 1.1.0")
+        Log.i(TAG, "Plugin version: 1.2.0 - AGGRESSIVE LOGGING")
         Log.i(TAG, "Godot version: ${godot.javaClass.simpleName}")
+        Log.i(TAG, "Activity: ${activity?.javaClass?.simpleName}")
         Log.i(TAG, "========================================")
+        
+        // Immediately set up listeners
+        setupKeyListeners()
+    }
+    
+    private fun setupKeyListeners() {
+        try {
+            // Method 1: DecorView key listener
+            activity?.runOnUiThread {
+                activity?.window?.decorView?.setOnKeyListener { view, keyCode, event ->
+                    Log.i(TAG, "[DecorView] Key event: keyCode=$keyCode, action=${event.action}, source=0x${event.source.toString(16)}")
+                    handleKeyEvent(keyCode, event)
+                }
+                Log.i(TAG, "✓ DecorView key listener registered")
+            }
+            
+            // Method 2: Input callback via Godot activity
+            Log.i(TAG, "Activity methods available: ${activity?.javaClass?.methods?.joinToString { it.name }}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to setup listeners: ${e.message}", e)
+        }
     }
     
     override fun getPluginName(): String {
@@ -54,44 +76,82 @@ class JoyConAndroidPlugin(godot: Godot) : GodotPlugin(godot) {
         KeyEvent.KEYCODE_BUTTON_SELECT to 6   // Minus button -> 6
     )
     
+    private fun handleKeyEvent(keyCode: Int, event: KeyEvent): Boolean {
+        Log.i(TAG, "🔍 RAW EVENT: keyCode=$keyCode, action=${event.action}, device=${event.deviceId}, source=0x${event.source.toString(16)}")
+        
+        when (event.action) {
+            KeyEvent.ACTION_DOWN -> return handleKeyDown(keyCode, event)
+            KeyEvent.ACTION_UP -> return handleKeyUp(keyCode, event)
+            else -> {
+                Log.i(TAG, "Other action: ${event.action}")
+                return false
+            }
+        }
+    }
+    
     fun handleKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (event != null && event.source and InputDevice.SOURCE_GAMEPAD != 0) {
+        Log.i(TAG, "📥 handleKeyDown called: keyCode=$keyCode")
+        
+        if (event == null) {
+            Log.w(TAG, "Event is null!")
+            return false
+        }
+        
+        val deviceId = event.deviceId
+        val device = InputDevice.getDevice(deviceId)
+        val deviceName = device?.name ?: "Unknown"
+        val isGamepad = (event.source and InputDevice.SOURCE_GAMEPAD) != 0
+        
+        Log.i(TAG, "  Device: $deviceId ($deviceName), isGamepad=$isGamepad")
+        
+        if (isGamepad) {
             val godotButton = BUTTON_MAP[keyCode]
-            val deviceId = event.deviceId
-            val device = InputDevice.getDevice(deviceId)
-            val deviceName = device?.name ?: "Unknown"
             
             if (godotButton != null) {
                 pressedButtons.getOrPut(deviceId) { mutableSetOf() }.add(godotButton)
                 emitSignal("joycon_button_pressed", deviceId, godotButton)
-                Log.i(TAG, "✓ Button DOWN: keyCode=$keyCode -> godot=$godotButton, device=$deviceId ($deviceName)")
+                Log.i(TAG, "✓ MAPPED Button DOWN: keyCode=$keyCode -> godot=$godotButton, device=$deviceId ($deviceName)")
                 Log.i(TAG, "  Active buttons on device $deviceId: ${pressedButtons[deviceId]?.joinToString()}")
                 return true
             } else {
-                Log.w(TAG, "✗ Unmapped button DOWN: keyCode=$keyCode, device=$deviceId ($deviceName) - Not in BUTTON_MAP")
+                Log.w(TAG, "✗ UNMAPPED gamepad button DOWN: keyCode=$keyCode, device=$deviceId ($deviceName)")
+                Log.w(TAG, "  Add to BUTTON_MAP: KeyEvent.KEYCODE_??? to X")
             }
-        } else if (event != null) {
-            Log.v(TAG, "Non-gamepad KeyDown: keyCode=$keyCode, source=0x${event.source.toString(16)}")
+        } else {
+            Log.i(TAG, "❌ Not a gamepad event: keyCode=$keyCode, source=0x${event.source.toString(16)}")
         }
         return false
     }
     
     fun handleKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
-        if (event != null && event.source and InputDevice.SOURCE_GAMEPAD != 0) {
+        Log.i(TAG, "📤 handleKeyUp called: keyCode=$keyCode")
+        
+        if (event == null) {
+            Log.w(TAG, "Event is null!")
+            return false
+        }
+        
+        val deviceId = event.deviceId
+        val device = InputDevice.getDevice(deviceId)
+        val deviceName = device?.name ?: "Unknown"
+        val isGamepad = (event.source and InputDevice.SOURCE_GAMEPAD) != 0
+        
+        Log.i(TAG, "  Device: $deviceId ($deviceName), isGamepad=$isGamepad")
+        
+        if (isGamepad) {
             val godotButton = BUTTON_MAP[keyCode]
-            val deviceId = event.deviceId
-            val device = InputDevice.getDevice(deviceId)
-            val deviceName = device?.name ?: "Unknown"
             
             if (godotButton != null) {
                 pressedButtons[deviceId]?.remove(godotButton)
                 emitSignal("joycon_button_released", deviceId, godotButton)
-                Log.i(TAG, "✓ Button UP: keyCode=$keyCode -> godot=$godotButton, device=$deviceId ($deviceName)")
+                Log.i(TAG, "✓ MAPPED Button UP: keyCode=$keyCode -> godot=$godotButton, device=$deviceId ($deviceName)")
                 Log.i(TAG, "  Active buttons on device $deviceId: ${pressedButtons[deviceId]?.joinToString() ?: "none"}")
                 return true
             } else {
-                Log.w(TAG, "✗ Unmapped button UP: keyCode=$keyCode, device=$deviceId ($deviceName) - Not in BUTTON_MAP")
+                Log.w(TAG, "✗ UNMAPPED gamepad button UP: keyCode=$keyCode, device=$deviceId ($deviceName)")
             }
+        } else {
+            Log.i(TAG, "❌ Not a gamepad event: keyCode=$keyCode, source=0x${event.source.toString(16)}")
         }
         return false
     }
@@ -99,12 +159,53 @@ class JoyConAndroidPlugin(godot: Godot) : GodotPlugin(godot) {
     // Godot 4.3 plugin lifecycle methods
     override fun onMainResume() {
         super.onMainResume()
-        Log.i(TAG, "Plugin resumed - listening for controller events")
+        Log.i(TAG, "========================================")
+        Log.i(TAG, "onMainResume called - Setting up listeners")
+        Log.i(TAG, "========================================")
+        
+        // Re-setup listeners
+        setupKeyListeners()
+        
+        // Log all input devices
+        logAllInputDevices()
     }
     
     override fun onMainPause() {
         super.onMainPause()
-        Log.i(TAG, "Plugin paused")
+        Log.i(TAG, "onMainPause called - Removing listeners")
+        
+        // Remove listener
+        activity?.runOnUiThread {
+            activity?.window?.decorView?.setOnKeyListener(null)
+        }
+    }
+    
+    private fun logAllInputDevices() {
+        Log.i(TAG, "========================================")
+        Log.i(TAG, "SCANNING ALL INPUT DEVICES")
+        Log.i(TAG, "========================================")
+        
+        val deviceIds = InputDevice.getDeviceIds()
+        Log.i(TAG, "Found ${deviceIds.size} input devices:")
+        
+        deviceIds.forEach { id ->
+            val device = InputDevice.getDevice(id)
+            if (device != null) {
+                val isGamepad = (device.sources and InputDevice.SOURCE_GAMEPAD) != 0
+                val isJoystick = (device.sources and InputDevice.SOURCE_JOYSTICK) != 0
+                val isDpad = (device.sources and InputDevice.SOURCE_DPAD) != 0
+                val isKeyboard = (device.sources and InputDevice.SOURCE_KEYBOARD) != 0
+                
+                Log.i(TAG, "Device $id: ${device.name}")
+                Log.i(TAG, "  Vendor: ${device.vendorId}, Product: ${device.productId}")
+                Log.i(TAG, "  Sources: 0x${device.sources.toString(16)}")
+                Log.i(TAG, "  - Gamepad: $isGamepad")
+                Log.i(TAG, "  - Joystick: $isJoystick")
+                Log.i(TAG, "  - Dpad: $isDpad")
+                Log.i(TAG, "  - Keyboard: $isKeyboard")
+            }
+        }
+        Log.i(TAG, "========================================")
     }
     
     @UsedByGodot
