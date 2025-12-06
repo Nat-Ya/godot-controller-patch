@@ -219,6 +219,62 @@ func _ready() -> void:
    git commit -m "chore: update Godot compatibility to 4.X"
    ```
 
+## Git Commit Workflow (CRITICAL ⚠️)
+
+**ALWAYS follow this sequence before committing:**
+
+### 1. Check Staged Files FIRST
+```bash
+git status
+git diff --stat --cached
+```
+
+### 2. Verify File Sizes (prevent committing large binaries)
+```bash
+# List files and their sizes
+git diff --cached --name-only | xargs ls -lh 2>/dev/null || git diff --cached --name-only | xargs du -h 2>/dev/null
+
+# Check for files > 1MB (should be in .gitignore)
+find . -name "*.aar" -o -name "*.apk" -o -name "*.tpz" -o -name "*.zip" | grep -v ".git"
+```
+
+### 3. Smart Verification Checklist
+- [ ] No binary files > 100KB (unless essential, like icons)
+- [ ] No build artifacts (*.aar, *.apk, build/, .gradle/)
+- [ ] No large archives (*.tpz, *.zip, android_source.zip)
+- [ ] No IDE configs (.idea/, *.iml, local.properties)
+- [ ] No logs (*.log, logcat.txt)
+- [ ] Only intentional changes staged
+
+### 4. If Large Files Found
+```bash
+# Unstage the file
+git restore --staged path/to/large/file
+
+# Add to .gitignore
+echo "path/to/large/file" >> .gitignore
+echo "*.extension" >> .gitignore  # For file types
+
+# Stage .gitignore
+git add .gitignore
+```
+
+### 5. Then Commit
+```bash
+git commit -m "type: descriptive message"
+```
+
+**NEVER use `git add -A` blindly before verification!**
+
+### Common Large Files to Avoid
+- `*.tpz` (Godot templates, ~1GB) ❌
+- `android_source.zip` (Android source, ~500MB) ❌
+- `*.aar` (build outputs, ~1-100MB) ❌
+- `*.apk` (APK builds, ~10-100MB) ❌
+- `godot-lib.release.aar` (Godot library, ~87MB) ❌
+
+These should be in `.gitignore` and downloaded/built locally.
+
 ## Commit Message Convention
 
 Follow [Conventional Commits](https://www.conventionalcommits.org/):
