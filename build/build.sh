@@ -85,11 +85,9 @@ echo ""
 # Create output directory
 mkdir -p "${OUTPUT_DIR}"
 
-# Clean old outputs
-echo -e "${YELLOW}Cleaning old build outputs...${NC}"
-rm -rf "${PROJECT_ROOT}/android/build" "${PROJECT_ROOT}/android/plugins/build" "${OUTPUT_DIR}"/*.aar
-echo -e "${GREEN}✓ Clean complete${NC}"
-echo ""
+# Get host user info for fixing permissions later
+HOST_UID=$(id -u)
+HOST_GID=$(id -g)
 
 # Build plugin
 echo -e "${YELLOW}Building plugin...${NC}"
@@ -99,6 +97,13 @@ docker run --rm \
     -w /workspace/android \
     ${DOCKER_IMAGE} \
     bash -c "
+        # Clean old build outputs (inside Docker to avoid permission issues)
+        echo 'Cleaning old build outputs...'
+        rm -rf build plugins/build
+        rm -f /workspace/output/*.aar
+        echo '✓ Clean complete'
+        echo ''
+        
         # Ensure wrapper is executable
         chmod +x gradlew
         
@@ -135,6 +140,9 @@ docker run --rm \
             find . -name '*.aar' -not -path '*/godot-lib/*' 2>/dev/null || true
             exit 1
         fi
+        
+        # Fix ownership of output files (match host user)
+        chown ${HOST_UID}:${HOST_GID} /workspace/output/*.aar 2>/dev/null || true
     "
 
 # Check if build succeeded
