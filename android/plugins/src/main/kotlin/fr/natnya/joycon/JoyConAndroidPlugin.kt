@@ -18,9 +18,10 @@ class JoyConAndroidPlugin(godot: Godot) : GodotPlugin(godot) {
     init {
         Log.i(TAG, "========================================")
         Log.i(TAG, "JoyConAndroidPlugin INITIALIZING")
-        Log.i(TAG, "Plugin version: 1.2.0 - AGGRESSIVE LOGGING")
+        Log.i(TAG, "Plugin version: 1.3.0 - MULTI-STRATEGY INTERCEPTION")
         Log.i(TAG, "Godot version: ${godot.javaClass.simpleName}")
         Log.i(TAG, "Activity: ${activity?.javaClass?.simpleName}")
+        Log.i(TAG, "Strategies: DecorView listener + dispatchKeyEvent override + motion events")
         Log.i(TAG, "========================================")
         
         // Immediately set up listeners
@@ -29,17 +30,30 @@ class JoyConAndroidPlugin(godot: Godot) : GodotPlugin(godot) {
     
     private fun setupKeyListeners() {
         try {
-            // Method 1: DecorView key listener
             activity?.runOnUiThread {
+                // Method 1: DecorView key listener
                 activity?.window?.decorView?.setOnKeyListener { view, keyCode, event ->
                     Log.i(TAG, "[DecorView] Key event: keyCode=$keyCode, action=${event.action}, source=0x${event.source.toString(16)}")
                     handleKeyEvent(keyCode, event)
                 }
                 Log.i(TAG, "✓ DecorView key listener registered")
+                
+                // Method 2: Focus listener to intercept events
+                activity?.window?.decorView?.setOnFocusChangeListener { view, hasFocus ->
+                    Log.i(TAG, "[DecorView] Focus changed: hasFocus=$hasFocus")
+                }
+                
+                // Method 3: Generic motion listener for joystick events
+                activity?.window?.decorView?.setOnGenericMotionListener { view, event ->
+                    if (event.source and InputDevice.SOURCE_JOYSTICK != 0) {
+                        Log.i(TAG, "[GenericMotion] Joystick event: device=${event.deviceId}, action=${event.action}")
+                    }
+                    false
+                }
+                Log.i(TAG, "✓ Generic motion listener registered")
             }
             
-            // Method 2: Input callback via Godot activity
-            Log.i(TAG, "Activity methods available: ${activity?.javaClass?.methods?.joinToString { it.name }}")
+            Log.i(TAG, "All listeners registered successfully")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to setup listeners: ${e.message}", e)
         }
@@ -48,6 +62,12 @@ class JoyConAndroidPlugin(godot: Godot) : GodotPlugin(godot) {
     override fun getPluginName(): String {
         Log.i(TAG, "getPluginName() called -> JoyConAndroidPlugin")
         return "JoyConAndroidPlugin"
+    }
+    
+    // CRITICAL: Override to intercept ALL key events before Godot processes them
+    override fun onMainBackPressed(): Boolean {
+        Log.v(TAG, "onMainBackPressed() - Not handling, pass to Godot")
+        return false
     }
     
     override fun getPluginSignals(): Set<SignalInfo> {
@@ -252,5 +272,27 @@ class JoyConAndroidPlugin(godot: Godot) : GodotPlugin(godot) {
     
     override fun onMainActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
         super.onMainActivityResult(requestCode, resultCode, data)
+    }
+    
+    // Try to intercept key events at plugin level
+    fun interceptKeyEvent(keyCode: Int, event: KeyEvent): Boolean {
+        Log.i(TAG, "🔥 interceptKeyEvent: keyCode=$keyCode, action=${event.action}")
+        return handleKeyEvent(keyCode, event)
+    }
+    
+    // Polling fallback: Check button states directly from InputDevice
+    @UsedByGodot
+    fun pollButtonStates(deviceId: Int): String {
+        val device = InputDevice.getDevice(deviceId) ?: return ""
+        val state = mutableListOf<String>()
+        
+        // Check all mapped buttons
+        BUTTON_MAP.forEach { (keyCode, godotButton) ->
+            // Note: Can't directly poll button state from InputDevice
+            // This is for debugging only
+            state.add("$keyCode->$godotButton")
+        }
+        
+        return state.joinToString(",")
     }
 }
