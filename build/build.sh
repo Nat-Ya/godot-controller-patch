@@ -47,7 +47,7 @@ EXPECTED_SIZE_MAX=95000000  # ~95MB for 4.3.stable
 if [ "$AAR_SIZE" -lt "$EXPECTED_SIZE_MIN" ] || [ "$AAR_SIZE" -gt "$EXPECTED_SIZE_MAX" ]; then
     echo -e "${RED}WARNING: Godot library size mismatch!${NC}"
     echo "Expected: 85-95MB (Godot ${REQUIRED_GODOT_VERSION}.stable)"
-    echo "Found: $(echo "scale=1; $AAR_SIZE / 1024 / 1024" | bc)MB"
+    echo "Found: $(awk "BEGIN {printf \"%.1f\", $AAR_SIZE / 1024 / 1024}")MB"
     echo ""
     echo -e "${YELLOW}Fix: Re-download Godot ${REQUIRED_GODOT_VERSION}.stable templates${NC}"
     echo "  rm ${GODOT_LIB}"
@@ -63,7 +63,7 @@ if [ "$AAR_SIZE" -lt "$EXPECTED_SIZE_MIN" ] || [ "$AAR_SIZE" -gt "$EXPECTED_SIZE
         exit 1
     fi
 else
-    echo -e "${GREEN}✓ Godot library version OK ($(echo "scale=1; $AAR_SIZE / 1024 / 1024" | bc)MB = ${REQUIRED_GODOT_VERSION}.stable)${NC}"
+    echo -e "${GREEN}✓ Godot library version OK ($(awk "BEGIN {printf \"%.1f\", $AAR_SIZE / 1024 / 1024}")MB = ${REQUIRED_GODOT_VERSION}.stable)${NC}"
 fi
 echo ""
 
@@ -117,8 +117,16 @@ docker run --rm \
         # Build
         ./gradlew clean assembleRelease
         
-        # Copy output
-        cp build/outputs/aar/android-release.aar /workspace/output/joycon_android_plugin.aar
+        # Copy output (AAR is in plugins subproject)
+        if [ -f plugins/build/outputs/aar/plugins-release.aar ]; then
+            cp plugins/build/outputs/aar/plugins-release.aar /workspace/output/joycon_android_plugin.aar
+        elif [ -f build/outputs/aar/android-release.aar ]; then
+            cp build/outputs/aar/android-release.aar /workspace/output/joycon_android_plugin.aar
+        else
+            echo 'ERROR: AAR not found in expected locations'
+            find build plugins/build -name '*.aar' 2>/dev/null || true
+            exit 1
+        fi
     "
 
 # Check if build succeeded
