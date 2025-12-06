@@ -1,0 +1,66 @@
+FROM ubuntu:22.04
+
+# Prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install dependencies for building Godot
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    scons \
+    pkg-config \
+    libx11-dev \
+    libxcursor-dev \
+    libxinerama-dev \
+    libgl1-mesa-dev \
+    libglu-dev \
+    libasound2-dev \
+    libpulse-dev \
+    libudev-dev \
+    libxi-dev \
+    libxrandr-dev \
+    git \
+    wget \
+    unzip \
+    openjdk-17-jdk \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Android SDK Command Line Tools
+ENV ANDROID_HOME=/opt/android-sdk
+ENV ANDROID_SDK_ROOT=${ANDROID_HOME}
+RUN mkdir -p ${ANDROID_HOME}/cmdline-tools && \
+    cd ${ANDROID_HOME}/cmdline-tools && \
+    wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip && \
+    unzip commandlinetools-linux-11076708_latest.zip && \
+    rm commandlinetools-linux-11076708_latest.zip && \
+    mv cmdline-tools latest
+
+ENV PATH="${ANDROID_HOME}/cmdline-tools/latest/bin:${PATH}"
+
+# Accept licenses and install Android SDK components
+RUN yes | sdkmanager --licenses && \
+    sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;23.2.8568313"
+
+ENV ANDROID_NDK_ROOT="${ANDROID_HOME}/ndk/23.2.8568313"
+
+# Clone Godot repository (4.3-stable)
+WORKDIR /build
+RUN git clone --branch 4.3-stable --depth 1 https://github.com/godotengine/godot.git
+
+# Build Android templates
+WORKDIR /build/godot
+RUN scons platform=android target=template_release arch=arm64 && \
+    scons platform=android target=template_release arch=armv7
+
+# Generate Godot templates
+RUN cd platform/android/java && \
+    ./gradlew generateGodotTemplates
+
+# Create output directory and copy the AAR
+RUN mkdir -p /output && \
+    find /build/godot/bin -name "godot-lib.*.aar" -exec cp {} /output/godot-lib.release.aar \;
+
+# Verify the file exists
+RUN ls -lh /output/godot-lib.release.aar
+
+WORKDIR /output
+CMD ["sh", "-c", "echo 'Build complete! Copy godot-lib.release.aar from /output volume'"]

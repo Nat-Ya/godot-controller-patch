@@ -17,6 +17,8 @@ local.properties
 godot-lib.release.aar
 *.import
 .godot/
+*.tpz
+android_source.zip
 
 # Build output
 build/output/

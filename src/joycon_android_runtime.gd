@@ -23,17 +23,42 @@ signal button_pressed(device_id: int, button_index: int)
 signal button_released(device_id: int, button_index: int)
 
 func _ready() -> void:
+	print("[JoyConAndroid] ========================================")
+	print("[JoyConAndroid] Runtime INITIALIZING")
+	print("[JoyConAndroid] OS: %s" % OS.get_name())
+	print("[JoyConAndroid] Godot version: %s" % Engine.get_version_info().string)
+	
 	if OS.get_name() == "Android":
+		print("[JoyConAndroid] Checking for plugin singleton...")
 		if Engine.has_singleton("JoyConAndroidPlugin"):
 			plugin = Engine.get_singleton("JoyConAndroidPlugin")
+			print("[JoyConAndroid] ✅ Plugin singleton found!")
+			
+			print("[JoyConAndroid] Connecting signals...")
 			plugin.connect("joycon_button_pressed", _on_button_pressed)
 			plugin.connect("joycon_button_released", _on_button_released)
-			print("[JoyConAndroid] ✅ Plugin connected - Ready for Joy-Con L button detection")
+			print("[JoyConAndroid] ✅ Signals connected")
+			
 			_log_button_mapping()
+			_discover_devices()
+			
+			print("[JoyConAndroid] ✅ READY - Listening for Joy-Con L button events")
 		else:
-			push_warning("[JoyConAndroid] ❌ Plugin not available - Joy-Con L buttons won't work")
+			push_warning("[JoyConAndroid] ❌ Plugin singleton NOT FOUND")
+			push_warning("[JoyConAndroid] Available singletons: %s" % str(Engine.get_singleton_list()))
 	else:
-		print("[JoyConAndroid] ℹ️ Not on Android, plugin disabled (running on %s)" % OS.get_name())
+		print("[JoyConAndroid] ℹ️ Not on Android - plugin disabled")
+	
+	print("[JoyConAndroid] ========================================")
+
+func _discover_devices() -> void:
+	if plugin != null and plugin.has_method("getConnectedDevices"):
+		print("[JoyConAndroid] Discovering connected gamepads...")
+		var devices = plugin.getConnectedDevices()
+		print("[JoyConAndroid] Found %d gamepad(s):" % devices.size())
+		for device_id in devices:
+			var device_name = plugin.getDeviceName(device_id) if plugin.has_method("getDeviceName") else "Unknown"
+			print("[JoyConAndroid]   - Device %d: %s" % [device_id, device_name])
 
 func _log_button_mapping() -> void:
 	print("[JoyConAndroid] Button mapping:")

@@ -1,5 +1,6 @@
 package fr.natnya.joycon
 
+import android.util.Log
 import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
@@ -10,9 +11,27 @@ import org.godotengine.godot.plugin.UsedByGodot
 
 class JoyConAndroidPlugin(godot: Godot) : GodotPlugin(godot) {
     
-    override fun getPluginName(): String = "JoyConAndroidPlugin"
+    companion object {
+        private const val TAG = "JoyConPlugin"
+    }
+    
+    init {
+        Log.i(TAG, "========================================")
+        Log.i(TAG, "JoyConAndroidPlugin INITIALIZING")
+        Log.i(TAG, "Plugin version: 1.1.0")
+        Log.i(TAG, "Godot version: ${godot.javaClass.simpleName}")
+        Log.i(TAG, "========================================")
+    }
+    
+    override fun getPluginName(): String {
+        Log.i(TAG, "getPluginName() called -> JoyConAndroidPlugin")
+        return "JoyConAndroidPlugin"
+    }
     
     override fun getPluginSignals(): Set<SignalInfo> {
+        Log.i(TAG, "getPluginSignals() called - Registering signals:")
+        Log.i(TAG, "  - joycon_button_pressed(deviceId: Int, buttonIndex: Int)")
+        Log.i(TAG, "  - joycon_button_released(deviceId: Int, buttonIndex: Int)")
         return setOf(
             SignalInfo("joycon_button_pressed", Int::class.javaObjectType, Int::class.javaObjectType),
             SignalInfo("joycon_button_released", Int::class.javaObjectType, Int::class.javaObjectType)
@@ -38,13 +57,21 @@ class JoyConAndroidPlugin(godot: Godot) : GodotPlugin(godot) {
     override fun onMainKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (event != null && event.source and InputDevice.SOURCE_GAMEPAD != 0) {
             val godotButton = BUTTON_MAP[keyCode]
+            val deviceId = event.deviceId
+            val device = InputDevice.getDevice(deviceId)
+            val deviceName = device?.name ?: "Unknown"
+            
             if (godotButton != null) {
-                val deviceId = event.deviceId
                 pressedButtons.getOrPut(deviceId) { mutableSetOf() }.add(godotButton)
                 emitSignal("joycon_button_pressed", deviceId, godotButton)
-                println("[JoyConAndroid] Button pressed: keyCode=$keyCode -> godot=$godotButton, device=$deviceId")
+                Log.i(TAG, "✓ Button DOWN: keyCode=$keyCode -> godot=$godotButton, device=$deviceId ($deviceName)")
+                Log.i(TAG, "  Active buttons on device $deviceId: ${pressedButtons[deviceId]?.joinToString()}")
                 return true
+            } else {
+                Log.w(TAG, "✗ Unmapped button DOWN: keyCode=$keyCode, device=$deviceId ($deviceName) - Not in BUTTON_MAP")
             }
+        } else if (event != null) {
+            Log.v(TAG, "Non-gamepad KeyDown: keyCode=$keyCode, source=0x${event.source.toString(16)}")
         }
         return super.onMainKeyDown(keyCode, event)
     }
@@ -52,12 +79,18 @@ class JoyConAndroidPlugin(godot: Godot) : GodotPlugin(godot) {
     override fun onMainKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
         if (event != null && event.source and InputDevice.SOURCE_GAMEPAD != 0) {
             val godotButton = BUTTON_MAP[keyCode]
+            val deviceId = event.deviceId
+            val device = InputDevice.getDevice(deviceId)
+            val deviceName = device?.name ?: "Unknown"
+            
             if (godotButton != null) {
-                val deviceId = event.deviceId
                 pressedButtons[deviceId]?.remove(godotButton)
                 emitSignal("joycon_button_released", deviceId, godotButton)
-                println("[JoyConAndroid] Button released: keyCode=$keyCode -> godot=$godotButton, device=$deviceId")
+                Log.i(TAG, "✓ Button UP: keyCode=$keyCode -> godot=$godotButton, device=$deviceId ($deviceName)")
+                Log.i(TAG, "  Active buttons on device $deviceId: ${pressedButtons[deviceId]?.joinToString() ?: "none"}")
                 return true
+            } else {
+                Log.w(TAG, "✗ Unmapped button UP: keyCode=$keyCode, device=$deviceId ($deviceName) - Not in BUTTON_MAP")
             }
         }
         return super.onMainKeyUp(keyCode, event)
@@ -65,7 +98,36 @@ class JoyConAndroidPlugin(godot: Godot) : GodotPlugin(godot) {
     
     @UsedByGodot
     fun pollJoyConButtons(deviceId: Int): IntArray {
-        return pressedButtons[deviceId]?.toIntArray() ?: intArrayOf()
+        val buttons = pressedButtons[deviceId]?.toIntArray() ?: intArrayOf()
+        if (buttons.isNotEmpty()) {
+            Log.v(TAG, "pollJoyConButtons(device=$deviceId) -> [${buttons.joinToString()}]")
+        }
+        return buttons
+    }
+    
+    @UsedByGodot
+    fun getConnectedDevices(): IntArray {
+        val deviceIds = InputDevice.getDeviceIds()
+        Log.i(TAG, "getConnectedDevices() called - Found ${deviceIds.size} input devices")
+        deviceIds.forEach { id ->
+            val device = InputDevice.getDevice(id)
+            if (device != null) {
+                val isGamepad = (device.sources and InputDevice.SOURCE_GAMEPAD) != 0
+                Log.i(TAG, "  Device $id: ${device.name} (gamepad=$isGamepad, sources=0x${device.sources.toString(16)})")
+            }
+        }
+        return deviceIds.filter { id ->
+            val device = InputDevice.getDevice(id)
+            device != null && (device.sources and InputDevice.SOURCE_GAMEPAD) != 0
+        }.toIntArray()
+    }
+    
+    @UsedByGodot
+    fun getDeviceName(deviceId: Int): String {
+        val device = InputDevice.getDevice(deviceId)
+        val name = device?.name ?: "Unknown Device"
+        Log.i(TAG, "getDeviceName($deviceId) -> $name")
+        return name
     }
     
     override fun onMainRequestPermissionsResult(
