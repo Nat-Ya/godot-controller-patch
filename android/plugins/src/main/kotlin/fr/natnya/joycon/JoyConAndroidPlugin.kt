@@ -19,6 +19,9 @@ class JoyConAndroidPlugin(godot: Godot) : GodotPlugin(godot) {
         )
     }
     
+    // Track currently pressed buttons per device
+    private val pressedButtons = mutableMapOf<Int, MutableSet<Int>>()
+    
     // Map Linux button codes to Godot-friendly indices
     private val BUTTON_MAP = mapOf(
         KeyEvent.KEYCODE_BUTTON_L1 to 4,      // L button (BTN_TL) -> 4
@@ -32,19 +35,37 @@ class JoyConAndroidPlugin(godot: Godot) : GodotPlugin(godot) {
         KeyEvent.KEYCODE_BUTTON_SELECT to 6   // Minus button -> 6
     )
     
-    @UsedByGodot
-    fun pollJoyConButtons(deviceId: Int): IntArray {
-        val device = InputDevice.getDevice(deviceId) ?: return intArrayOf()
-        val pressedButtons = mutableListOf<Int>()
-        
-        // Check all mapped buttons
-        for ((keyCode, godotIndex) in BUTTON_MAP) {
-            if (device.hasKeys(keyCode).any { it }) {
-                pressedButtons.add(godotIndex)
+    override fun onMainKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (event != null && event.source and InputDevice.SOURCE_GAMEPAD != 0) {
+            val godotButton = BUTTON_MAP[keyCode]
+            if (godotButton != null) {
+                val deviceId = event.deviceId
+                pressedButtons.getOrPut(deviceId) { mutableSetOf() }.add(godotButton)
+                emitSignal("joycon_button_pressed", deviceId, godotButton)
+                println("[JoyConAndroid] Button pressed: keyCode=$keyCode -> godot=$godotButton, device=$deviceId")
+                return true
             }
         }
-        
-        return pressedButtons.toIntArray()
+        return super.onMainKeyDown(keyCode, event)
+    }
+    
+    override fun onMainKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+        if (event != null && event.source and InputDevice.SOURCE_GAMEPAD != 0) {
+            val godotButton = BUTTON_MAP[keyCode]
+            if (godotButton != null) {
+                val deviceId = event.deviceId
+                pressedButtons[deviceId]?.remove(godotButton)
+                emitSignal("joycon_button_released", deviceId, godotButton)
+                println("[JoyConAndroid] Button released: keyCode=$keyCode -> godot=$godotButton, device=$deviceId")
+                return true
+            }
+        }
+        return super.onMainKeyUp(keyCode, event)
+    }
+    
+    @UsedByGodot
+    fun pollJoyConButtons(deviceId: Int): IntArray {
+        return pressedButtons[deviceId]?.toIntArray() ?: intArrayOf()
     }
     
     override fun onMainRequestPermissionsResult(
