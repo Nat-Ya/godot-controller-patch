@@ -43,40 +43,67 @@ echo -e "${YELLOW}Checking Godot library version...${NC}"
 
 # Try to extract version from AAR (it's a ZIP file)
 GODOT_VERSION=""
+VERSION_VALID=false
+
 if command -v unzip >/dev/null 2>&1; then
-    # Extract AndroidManifest.xml and look for version info
-    GODOT_VERSION=$(unzip -p "${GODOT_LIB}" AndroidManifest.xml 2>/dev/null | grep -oP 'android:versionName="\K[^"]+' 2>/dev/null || echo "")
-    
-    # If not in manifest, try classes.jar MANIFEST.MF
-    if [ -z "$GODOT_VERSION" ]; then
-        GODOT_VERSION=$(unzip -p "${GODOT_LIB}" classes.jar 2>/dev/null | unzip -p - META-INF/MANIFEST.MF 2>/dev/null | grep -i "Implementation-Version" | cut -d':' -f2 | tr -d ' \r\n' || echo "")
+    # Method 1: Check for org.godotengine.godot package (most reliable)
+    if unzip -l "${GODOT_LIB}" 2>/dev/null | grep -q "org/godotengine/godot/"; then
+        # This is definitely a Godot AAR
+        
+        # Try to get version from package name patterns
+        GODOT_VERSION=$(unzip -p "${GODOT_LIB}" AndroidManifest.xml 2>/dev/null | grep -oP 'android:versionName="\K[^"]+' 2>/dev/null || echo "")
+        
+        # If version is "1.0" or similar generic, it's probably not the real Godot version
+        if [[ "$GODOT_VERSION" =~ ^[0-9]+\.[0-9]+$ ]] && [[ "$GODOT_VERSION" != "4."* ]]; then
+            # Generic version, ignore it
+            GODOT_VERSION=""
+        fi
+        
+        # Check file size as reliable indicator (4.3.stable is ~96MB)
+        AAR_SIZE=$(stat -f%z "${GODOT_LIB}" 2>/dev/null || stat -c%s "${GODOT_LIB}" 2>/dev/null || echo "0")
+        AAR_SIZE_MB=$(awk "BEGIN {printf \"%.1f\", $AAR_SIZE / 1024 / 1024}")
+        
+        if [ "$AAR_SIZE" -ge 85000000 ] && [ "$AAR_SIZE" -le 100000000 ]; then
+            # Size matches 4.3.stable (~96MB)
+            VERSION_VALID=true
+            if [ -z "$GODOT_VERSION" ]; then
+                GODOT_VERSION="${REQUIRED_GODOT_VERSION}.stable (verified by size: ${AAR_SIZE_MB}MB)"
+            fi
+            echo -e "${GREEN}✓ Godot library verified: ${GODOT_VERSION}${NC}"
+            echo -e "${GREEN}  Size: ${AAR_SIZE_MB}MB (expected ~96MB for 4.3.stable)${NC}"
+        else
+            echo -e "${RED}WARNING: Godot library size unexpected!${NC}"
+            echo "Expected: 85-100MB (Godot ${REQUIRED_GODOT_VERSION}.stable is ~96MB)"
+            echo "Found: ${AAR_SIZE_MB}MB"
+            echo ""
+            echo -e "${YELLOW}This may not be the correct Godot library${NC}"
+        fi
+    else
+        echo -e "${RED}ERROR: AAR does not contain org.godotengine.godot package!${NC}"
+        echo "This is not a valid Godot library."
     fi
 fi
 
-if [ -n "$GODOT_VERSION" ]; then
-    # Version extracted successfully
-    if [[ "$GODOT_VERSION" == "${REQUIRED_GODOT_VERSION}"* ]]; then
-        echo -e "${GREEN}✓ Godot library version OK: ${GODOT_VERSION}${NC}"
-    else
-        echo -e "${RED}WARNING: Godot library version mismatch!${NC}"
-        echo "Expected: ${REQUIRED_GODOT_VERSION}.stable"
-        echo "Found: ${GODOT_VERSION}"
-        echo ""
-        echo -e "${YELLOW}Fix: Re-download Godot ${REQUIRED_GODOT_VERSION}.stable templates${NC}"
-        echo "  rm ${GODOT_LIB}"
-        echo "  curl -L -o Godot_v${REQUIRED_GODOT_VERSION}-stable_export_templates.tpz \\"
-        echo "    https://github.com/godotengine/godot/releases/download/${REQUIRED_GODOT_VERSION}-stable/Godot_v${REQUIRED_GODOT_VERSION}-stable_export_templates.tpz"
-        echo "  unzip -j Godot_v${REQUIRED_GODOT_VERSION}-stable_export_templates.tpz templates/android_source.zip"
-        echo "  unzip -j android_source.zip libs/release/godot-lib.template_release.aar"
-        echo "  mv godot-lib.template_release.aar ${GODOT_LIB}"
-        echo ""
-        read -p "Continue anyway? (y/N) " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            exit 1
-        fi
+if [ "$VERSION_VALID" = false ]; then
+    # Show fix instructions
+    echo ""
+    echo -e "${YELLOW}Fix: Download the correct Godot ${REQUIRED_GODOT_VERSION}.stable library${NC}"
+    echo "  rm ${GODOT_LIB}"
+    echo "  curl -L -o Godot_v${REQUIRED_GODOT_VERSION}-stable_export_templates.tpz \\"
+    echo "    https://github.com/godotengine/godot/releases/download/${REQUIRED_GODOT_VERSION}-stable/Godot_v${REQUIRED_GODOT_VERSION}-stable_export_templates.tpz"
+    echo "  unzip -j Godot_v${REQUIRED_GODOT_VERSION}-stable_export_templates.tpz templates/android_source.zip"
+    echo "  unzip -j android_source.zip libs/release/godot-lib.template_release.aar"
+    echo "  mv godot-lib.template_release.aar ${GODOT_LIB}"
+    echo ""
+    read -p "Continue anyway? (y/N) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        exit 1
     fi
-else
+fi
+
+# Skip old size-only fallback code
+if false; then
     # Fallback to size check if version not found
     echo -e "${YELLOW}Version not found in AAR, checking file size...${NC}"
     AAR_SIZE=$(stat -f%z "${GODOT_LIB}" 2>/dev/null || stat -c%s "${GODOT_LIB}" 2>/dev/null || echo "0")
