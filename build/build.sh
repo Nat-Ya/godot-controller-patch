@@ -103,8 +103,10 @@ fi
 # Check 5: Contains Godot-specific files (org/godotengine or libgodot)
 echo -n "5. Godot package/library: "
 if command -v unzip >/dev/null 2>&1; then
-    HAS_GODOT_PACKAGE=$(unzip -l "${GODOT_LIB}" 2>/dev/null | grep -c "org/godotengine" || echo "0")
-    HAS_GODOT_LIB=$(unzip -l "${GODOT_LIB}" 2>/dev/null | grep -c "libgodot" || echo "0")
+    HAS_GODOT_PACKAGE=$(unzip -l "${GODOT_LIB}" 2>/dev/null | grep -c "org/godotengine" || true)
+    HAS_GODOT_LIB=$(unzip -l "${GODOT_LIB}" 2>/dev/null | grep -c "libgodot" || true)
+    HAS_GODOT_PACKAGE=${HAS_GODOT_PACKAGE:-0}
+    HAS_GODOT_LIB=${HAS_GODOT_LIB:-0}
     
     if [ "$HAS_GODOT_PACKAGE" -gt 0 ] || [ "$HAS_GODOT_LIB" -gt 0 ]; then
         echo -e "${GREEN}✓ PASS${NC} (found Godot signatures)"
