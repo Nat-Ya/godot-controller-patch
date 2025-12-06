@@ -18,20 +18,54 @@ NC='\033[0m' # No Color
 echo -e "${GREEN}=== JoyCon Android Plugin Build ===${NC}"
 echo ""
 
+# Required Godot version
+REQUIRED_GODOT_VERSION="4.3"
+GODOT_LIB="${PROJECT_ROOT}/android/godot-lib/godot-lib.release.aar"
+
 # Check if godot-lib.release.aar exists
-if [ ! -f "${PROJECT_ROOT}/android/godot-lib/godot-lib.release.aar" ]; then
+if [ ! -f "${GODOT_LIB}" ]; then
     echo -e "${RED}ERROR: godot-lib.release.aar not found!${NC}"
     echo ""
-    echo "Please download the Godot AAR library:"
-    echo "1. Download from https://godotengine.org/download/4.x/linux"
-    echo "   OR build from source: https://github.com/godotengine/godot"
+    echo "Required: Godot ${REQUIRED_GODOT_VERSION}.stable"
     echo ""
-    echo "2. Extract godot-lib.release.aar from the templates"
-    echo ""
-    echo "3. Copy to: ${PROJECT_ROOT}/android/godot-lib/"
+    echo "Fix: Download Godot ${REQUIRED_GODOT_VERSION} templates:"
+    echo "  curl -L -o Godot_v${REQUIRED_GODOT_VERSION}-stable_export_templates.tpz \\"
+    echo "    https://github.com/godotengine/godot/releases/download/${REQUIRED_GODOT_VERSION}-stable/Godot_v${REQUIRED_GODOT_VERSION}-stable_export_templates.tpz"
+    echo "  unzip -j Godot_v${REQUIRED_GODOT_VERSION}-stable_export_templates.tpz templates/android_source.zip"
+    echo "  unzip -j android_source.zip libs/release/godot-lib.template_release.aar"
+    echo "  mv godot-lib.template_release.aar ${GODOT_LIB}"
     echo ""
     exit 1
 fi
+
+# Verify Godot version from AAR
+echo -e "${YELLOW}Checking Godot library version...${NC}"
+AAR_SIZE=$(stat -f%z "${GODOT_LIB}" 2>/dev/null || stat -c%s "${GODOT_LIB}" 2>/dev/null || echo "0")
+EXPECTED_SIZE_MIN=85000000  # ~85MB for 4.3.stable
+EXPECTED_SIZE_MAX=95000000  # ~95MB for 4.3.stable
+
+if [ "$AAR_SIZE" -lt "$EXPECTED_SIZE_MIN" ] || [ "$AAR_SIZE" -gt "$EXPECTED_SIZE_MAX" ]; then
+    echo -e "${RED}WARNING: Godot library size mismatch!${NC}"
+    echo "Expected: 85-95MB (Godot ${REQUIRED_GODOT_VERSION}.stable)"
+    echo "Found: $(echo "scale=1; $AAR_SIZE / 1024 / 1024" | bc)MB"
+    echo ""
+    echo -e "${YELLOW}Fix: Re-download Godot ${REQUIRED_GODOT_VERSION}.stable templates${NC}"
+    echo "  rm ${GODOT_LIB}"
+    echo "  curl -L -o Godot_v${REQUIRED_GODOT_VERSION}-stable_export_templates.tpz \\"
+    echo "    https://github.com/godotengine/godot/releases/download/${REQUIRED_GODOT_VERSION}-stable/Godot_v${REQUIRED_GODOT_VERSION}-stable_export_templates.tpz"
+    echo "  unzip -j Godot_v${REQUIRED_GODOT_VERSION}-stable_export_templates.tpz templates/android_source.zip"
+    echo "  unzip -j android_source.zip libs/release/godot-lib.template_release.aar"
+    echo "  mv godot-lib.template_release.aar ${GODOT_LIB}"
+    echo ""
+    read -p "Continue anyway? (y/N) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        exit 1
+    fi
+else
+    echo -e "${GREEN}✓ Godot library version OK ($(echo "scale=1; $AAR_SIZE / 1024 / 1024" | bc)MB = ${REQUIRED_GODOT_VERSION}.stable)${NC}"
+fi
+echo ""
 
 # Check Docker authentication
 echo -e "${YELLOW}Checking Docker authentication...${NC}"

@@ -54,7 +54,7 @@ class JoyConAndroidPlugin(godot: Godot) : GodotPlugin(godot) {
         KeyEvent.KEYCODE_BUTTON_SELECT to 6   // Minus button -> 6
     )
     
-    override fun onMainKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+    fun handleKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (event != null && event.source and InputDevice.SOURCE_GAMEPAD != 0) {
             val godotButton = BUTTON_MAP[keyCode]
             val deviceId = event.deviceId
@@ -73,10 +73,10 @@ class JoyConAndroidPlugin(godot: Godot) : GodotPlugin(godot) {
         } else if (event != null) {
             Log.v(TAG, "Non-gamepad KeyDown: keyCode=$keyCode, source=0x${event.source.toString(16)}")
         }
-        return super.onMainKeyDown(keyCode, event)
+        return false
     }
     
-    override fun onMainKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+    fun handleKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
         if (event != null && event.source and InputDevice.SOURCE_GAMEPAD != 0) {
             val godotButton = BUTTON_MAP[keyCode]
             val deviceId = event.deviceId
@@ -93,7 +93,18 @@ class JoyConAndroidPlugin(godot: Godot) : GodotPlugin(godot) {
                 Log.w(TAG, "✗ Unmapped button UP: keyCode=$keyCode, device=$deviceId ($deviceName) - Not in BUTTON_MAP")
             }
         }
-        return super.onMainKeyUp(keyCode, event)
+        return false
+    }
+    
+    // Godot 4.3 plugin lifecycle methods
+    override fun onMainResume() {
+        super.onMainResume()
+        Log.i(TAG, "Plugin resumed - listening for controller events")
+    }
+    
+    override fun onMainPause() {
+        super.onMainPause()
+        Log.i(TAG, "Plugin paused")
     }
     
     @UsedByGodot
